@@ -20,6 +20,7 @@ app.use(express.json()); // Parses incoming JSON requests
 
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
+
 // Routes
 app.use('/api/questions', questionRoutes);
 app.use('/api/learn', learnRoutes);
@@ -36,24 +37,29 @@ const MONGO_URI = process.env.MONGODB_URI;
 //     .catch(err => console.log("DB Connection Error: ", err)
 //     );
 
-let isConnected = false;
-async function connectMongoDB() {
+const connectDB = async () => {
     try {
         await mongoose.connect(MONGO_URI);
-        isConnected = true;
         console.log("Connected to MongoDB");
-        // app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
     } catch (error) {
-        console.log("Error in connecting the database: ", error);
+        console.error("Database connection error:", error);
     }
+};
+
+app.use(async (req, res, next) => {
+    if (mongoose.connection.readyState === 1) {
+        return next();
+    }
+    await connectDB();
+    next();
+});
+
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
 
-app.use((req, res, next) => {
-    if(!isConnected){
-        connectMongoDB();
-    }
-    next();
-})
+export default app;
 
 app.get("/", (req, res) => {
     res.send("Welcome to aptitude platform");
