@@ -66,3 +66,4 @@ export default app;
 app.get("/", (req, res) => {
     res.send("Welcome to aptitude platform");
 });
+
