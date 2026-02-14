@@ -1,96 +1,13 @@
-// import express from 'express';
-// import mongoose from 'mongoose';
-// import cors from 'cors';
-// import dotenv from 'dotenv';
-// dotenv.config()
-// import path from 'path';
-// import { fileURLToPath } from 'url';
-// import questionRoutes from './routes/questionRoutes.js';
-// import learnRoutes from './routes/learnRoute.js';
-
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
-
-// const app = express();
-// const PORT = process.env.PORT;
-
-// // Middlewares
-// app.use(cors());
-// app.use(express.json()); // Parses incoming JSON requests
-
-// app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
-
-
-// // Routes
-// app.use('/api/questions', questionRoutes);
-// app.use('/api/learn', learnRoutes);
-
-// // MongoDB Connection
-// const MONGO_URI = process.env.MONGODB_URI;
-
-// // mongoose.connect(MONGO_URI)
-// //     .then(() => {
-// //         console.log("Connected to MongoDB");
-// //         app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-// //     }
-// //     )
-// //     .catch(err => console.log("DB Connection Error: ", err)
-// //     );
-
-// // Connect once at startup
-// const connectDB = async () => {
-//     try {
-//         if (mongoose.connection.readyState === 1) {
-//             console.log("Already connected to MongoDB");
-//             return;
-//         }
-//         await mongoose.connect(MONGO_URI, {
-//             maxPoolSize: 10,
-//             serverSelectionTimeoutMS: 5000,
-//         });
-//         console.log("Connected to MongoDB");
-//     } catch (error) {
-//         console.error("Database connection error:", error);
-//         process.exit(1);
-//     }
-// };
-
-// // Call once before listening
-// connectDB();
-
-// app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-// // app.use(async (req, res, next) => {
-// //     if (mongoose.connection.readyState === 1) {
-// //         return next();
-// //     }
-// //     await connectDB();
-// //     next();
-// // });
-
-// if (process.env.NODE_ENV !== 'production') {
-//     const PORT = process.env.PORT || 5000;
-//     connectDB().then(() => {
-//         app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-//     });
-// }
-
-// export default app;
-
-// app.get("/", (req, res) => {
-//     res.send("Welcome to aptitude platform");
-// });
-
-
 import express from 'express';
 import mongoose from 'mongoose';
 import cors from 'cors';
 import dotenv from 'dotenv';
-dotenv.config()
 import path from 'path';
 import { fileURLToPath } from 'url';
 import questionRoutes from './routes/questionRoutes.js';
 import learnRoutes from './routes/learnRoute.js';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -98,47 +15,62 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middlewares
+// 1. MIDDLEWARES
 app.use(cors());
 app.use(express.json());
+// Ensure the public folder exists for local uploads
 app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// Routes
-app.use('/api/questions', questionRoutes);
-app.use('/api/learn', learnRoutes);
-
-// MongoDB Connection
+// 2. DATABASE CONNECTION LOGIC (Serverless Optimized)
 const MONGO_URI = process.env.MONGODB_URI;
 
 const connectDB = async () => {
+    // If we already have a connection, don't create a new one
+    if (mongoose.connection.readyState >= 1) {
+        return;
+    }
+
     try {
-        if (mongoose.connection.readyState === 1) {
-            console.log("Already connected to MongoDB");
-            return;
-        }
         await mongoose.connect(MONGO_URI, {
-            maxPoolSize: 10,
-            serverSelectionTimeoutMS: 5000,
+            // Serverless timeout settings to prevent 10s hangs
+            serverSelectionTimeoutMS: 5000, 
+            socketTimeoutMS: 45000,
         });
-        console.log("Connected to MongoDB");
+        console.log("Connected to MongoDB Atlas");
     } catch (error) {
-        console.error("Database connection error:", error);
-        throw error;
+        console.error("MongoDB connection error:", error);
+        // Do not throw here, let the middleware handle the response
     }
 };
 
-// Connect on startup
-connectDB().catch(err => {
-    console.error("Failed to connect to MongoDB:", err);
+// 3. CONNECTION MIDDLEWARE
+// This ensures that for every request to Vercel, we check the DB connection
+app.use(async (req, res, next) => {
+    await connectDB();
+    next();
 });
+
+// 4. ROUTES
+app.use('/api/questions', questionRoutes);
+app.use('/api/learn', learnRoutes);
 
 app.get("/", (req, res) => {
-    res.send("Welcome to aptitude platform");
+    res.send("Welcome to the ZenCode Aptitude Platform API");
 });
 
-// Only listen in local development
+// 5. ERROR HANDLING MIDDLEWARE
+app.use((err, req, res, next) => {
+    console.error(err.stack);
+    res.status(500).json({
+        message: "Internal Server Error",
+        error: process.env.NODE_ENV === 'production' ? {} : err.message
+    });
+});
+
+// 6. ADAPTIVE LISTEN
+// Vercel does not use app.listen(), but your local machine does
 if (process.env.NODE_ENV !== 'production') {
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    app.listen(PORT, () => console.log(`Server running locally on port ${PORT}`));
 }
 
 export default app;
