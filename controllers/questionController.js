@@ -46,42 +46,26 @@ export const getQuestionById = async (req, res) => {
 // Add a new question
 export const addQuestion = async (req, res) => {
     try {
-        const questionData = req.body;
+        const questionData = { ...req.body };
 
-        // 1. Handle the Image URL from Cloudinary
         if (req.file) {
-            questionData.imageUrl = req.file.path; // Cloudinary returns the full https URL here
+            questionData.imageUrl = req.file.path;
         }
 
-        // 2. Handle Options (Safe Parsing)
-        // If frontend sends as array via formData, Multer might already have it as an array
-        if (typeof questionData.options === 'string') {
-            try {
-                // Only parse if it looks like a JSON string
-                if (questionData.options.startsWith('[')) {
-                    questionData.options = JSON.parse(questionData.options);
-                } else {
-                    // If it's a single string, wrap it in an array
-                    questionData.options = [questionData.options];
-                }
-            } catch (e) {
-                console.error("JSON Parsing failed, using raw value");
-            }
+        // Only parse if it's a string that LOOKS like an array
+        if (typeof req.body.options === 'string' && req.body.options.startsWith('[')) {
+            questionData.options = JSON.parse(req.body.options);
+        } else if (typeof req.body.options === 'string') {
+            questionData.options = [req.body.options];
         }
 
         const newQuestion = new Question(questionData);
         await newQuestion.save();
 
-        res.status(201).json({
-            message: "Question added successfully",
-            newQuestion
-        });
+        res.status(201).json({ message: "Success", newQuestion });
     } catch (error) {
-        console.error("DETAILED ERROR:", error);
-        res.status(500).json({
-            message: "Internal Server Error",
-            error: error.message // This will now show the actual error in the response
-        });
+        console.error("Vercel Crash Log:", error);
+        res.status(500).json({ error: error.message });
     }
 };
 

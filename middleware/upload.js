@@ -4,7 +4,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
 // Configure Cloudinary using your env variables
 cloudinary.config({
-  cloud_name: 'dtmj84y0y', // extracted from your URL
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, // extracted from your URL
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
