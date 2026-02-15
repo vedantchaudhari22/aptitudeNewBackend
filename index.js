@@ -13,7 +13,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 
 // 1. MIDDLEWARES
 app.use(cors({
@@ -22,33 +21,31 @@ app.use(cors({
     credentials: true
 }));
 app.use(express.json());
-// Ensure the public folder exists for local uploads
-app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 
-// 2. DATABASE CONNECTION LOGIC (Serverless Optimized)
+// 2. DATABASE CONNECTION (Cached for Serverless)
 const MONGO_URI = process.env.MONGODB_URI;
 
+// Global variable to cache the connection
+let isConnected = false; 
+
 const connectDB = async () => {
-    // If we already have a connection, don't create a new one
-    if (mongoose.connection.readyState >= 1) {
+    if (isConnected) {
         return;
     }
 
     try {
-        await mongoose.connect(MONGO_URI, {
-            // Serverless timeout settings to prevent 10s hangs
-            serverSelectionTimeoutMS: 5000,
+        const db = await mongoose.connect(MONGO_URI, {
+            serverSelectionTimeoutMS: 5000, // Timeout after 5s if DB is unreachable
             socketTimeoutMS: 45000,
         });
+        isConnected = db.connections[0].readyState;
         console.log("Connected to MongoDB Atlas");
     } catch (error) {
         console.error("MongoDB connection error:", error);
-        // Do not throw here, let the middleware handle the response
     }
 };
 
 // 3. CONNECTION MIDDLEWARE
-// This ensures that for every request to Vercel, we check the DB connection
 app.use(async (req, res, next) => {
     await connectDB();
     next();
@@ -62,18 +59,19 @@ app.get("/", (req, res) => {
     res.send("Welcome to the ZenCode Aptitude Platform API");
 });
 
-// 5. ERROR HANDLING MIDDLEWARE
+// 5. ERROR HANDLING
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).json({
         message: "Internal Server Error",
-        error: process.env.NODE_ENV === 'production' ? {} : err.message
+        error: process.env.NODE_ENV === 'production' ? "Something went wrong" : err.message
     });
 });
 
-// 6. ADAPTIVE LISTEN
-// Vercel does not use app.listen(), but your local machine does
+// 6. ADAPTIVE LISTEN (Crucial for Vercel)
+// Vercel handles the listening; app.listen() is only for local dev
 if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Server running locally on port ${PORT}`));
 }
 
