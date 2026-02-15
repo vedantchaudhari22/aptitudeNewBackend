@@ -1,35 +1,25 @@
 import multer from 'multer';
-import path from 'path';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 
-// Set storage engine
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // Ensure this folder exists: public/uploads
-    cb(null, './public/uploads/');
-  },
-  filename: (req, file, cb) => {
-    // Renames file to: fieldname-timestamp.extension
-    cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`);
-  }
+// Configure Cloudinary using your env variables
+cloudinary.config({
+  cloud_name: 'dtmj84y0y', // extracted from your URL
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// File filter to ensure only images are uploaded
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'aptitude_questions', // This will create a folder in your Cloudinary media library
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif'],
+  },
+});
 
-  if (extname && mimetype) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Error: Only images (jpeg, jpg, png, gif) are allowed!'));
-  }
-};
-
-const upload = multer({
+const upload = multer({ 
   storage: storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: fileFilter
+  limits: { fileSize: 5 * 1024 * 1024 } // 5MB Limit
 });
 
 export default upload;

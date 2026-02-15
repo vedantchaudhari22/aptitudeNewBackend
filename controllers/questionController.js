@@ -48,14 +48,25 @@ export const addQuestion = async (req, res) => {
     try {
         const questionData = req.body;
 
-        // If an image was uploaded, add its path to the question data
+        // 1. Handle the Image URL from Cloudinary
         if (req.file) {
-            questionData.imageUrl = `/uploads/${req.file.filename}`;
+            questionData.imageUrl = req.file.path; // Cloudinary returns the full https URL here
         }
 
-        // Parse options if they come as a string (common with form-data)
+        // 2. Handle Options (Safe Parsing)
+        // If frontend sends as array via formData, Multer might already have it as an array
         if (typeof questionData.options === 'string') {
-            questionData.options = JSON.parse(questionData.options);
+            try {
+                // Only parse if it looks like a JSON string
+                if (questionData.options.startsWith('[')) {
+                    questionData.options = JSON.parse(questionData.options);
+                } else {
+                    // If it's a single string, wrap it in an array
+                    questionData.options = [questionData.options];
+                }
+            } catch (e) {
+                console.error("JSON Parsing failed, using raw value");
+            }
         }
 
         const newQuestion = new Question(questionData);
@@ -66,9 +77,10 @@ export const addQuestion = async (req, res) => {
             newQuestion
         });
     } catch (error) {
-        res.status(400).json({
-            message: "Error adding question",
-            error: error.message
+        console.error("DETAILED ERROR:", error);
+        res.status(500).json({
+            message: "Internal Server Error",
+            error: error.message // This will now show the actual error in the response
         });
     }
 };
