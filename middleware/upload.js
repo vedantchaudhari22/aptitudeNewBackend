@@ -1,19 +1,24 @@
 import multer from 'multer';
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import dotenv from 'dotenv';
 
-// Configure Cloudinary using your env variables
+dotenv.config();
+
+// Cloudinary Configuration
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME, // extracted from your URL
+  cloud_name: 'dtmj84y0y', 
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Storage Engine for Vercel (Stateless)
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'aptitude_questions', // This will create a folder in your Cloudinary media library
+    folder: 'aptitude_questions', // Cloudinary mein folder name
     allowed_formats: ['jpg', 'png', 'jpeg', 'gif'],
+    public_id: (req, file) => `question-${Date.now()}`,
   },
 });
 

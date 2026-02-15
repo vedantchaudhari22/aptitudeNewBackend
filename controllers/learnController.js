@@ -1,10 +1,16 @@
-import { Learn } from '../models/learnModel.js'; // Assuming you named it Learn
+import { Learn } from '../models/learnModel.js';
 
 // @desc    Add a new video lecture
 // @route   POST /api/learn
 export const addLecture = async (req, res) => {
     try {
         const { topic, category, videoUrl, description, duration } = req.body;
+
+        // Validation check for Vercel stability
+        if (!topic || !videoUrl) {
+            return res.status(400).json({ message: "Topic and Video URL are required" });
+        }
+
         const lecture = await Learn.create({
             topic,
             category,
@@ -12,35 +18,45 @@ export const addLecture = async (req, res) => {
             description,
             duration
         });
+
         res.status(201).json(lecture);
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error("Add Lecture Error:", error.message);
+        res.status(500).json({ message: "Server Error: Could not add lecture", error: error.message });
     }
 };
 
-// @desc    Get all video lectures for the Learn Page table
+// @desc    Get all video lectures
 // @route   GET /api/learn
 export const getLectures = async (req, res) => {
     try {
-        const lectures = await Learn.find({});
+        // Use lean() for faster performance in serverless functions
+        const lectures = await Learn.find({}).lean().sort({ createdAt: -1 });
         res.status(200).json(lectures);
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.error("Get Lectures Error:", error.message);
+        res.status(500).json({ message: "Server Error: Could not fetch lectures", error: error.message });
     }
 };
 
-// @desc    Update a lecture (e.g., changing the video link)
+// @desc    Update a lecture
 // @route   PUT /api/learn/:id
 export const updateLecture = async (req, res) => {
     try {
         const updatedLecture = await Learn.findByIdAndUpdate(
             req.params.id, 
             req.body, 
-            { new: true }
+            { new: true, runValidators: true } // runValidators ensures the update follows schema rules
         );
+
+        if (!updatedLecture) {
+            return res.status(404).json({ message: "Lecture not found" });
+        }
+
         res.status(200).json(updatedLecture);
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error("Update Lecture Error:", error.message);
+        res.status(400).json({ message: "Invalid update data", error: error.message });
     }
 };
 
@@ -48,9 +64,15 @@ export const updateLecture = async (req, res) => {
 // @route   DELETE /api/learn/:id
 export const deleteLecture = async (req, res) => {
     try {
-        await Learn.findByIdAndDelete(req.params.id);
+        const deletedLecture = await Learn.findByIdAndDelete(req.params.id);
+
+        if (!deletedLecture) {
+            return res.status(404).json({ message: "Lecture not found" });
+        }
+
         res.status(200).json({ message: "Lecture deleted successfully" });
     } catch (error) {
-        res.status(400).json({ message: error.message });
+        console.error("Delete Lecture Error:", error.message);
+        res.status(500).json({ message: "Could not delete lecture", error: error.message });
     }
 };
